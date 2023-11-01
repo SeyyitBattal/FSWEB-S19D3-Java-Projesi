@@ -33,8 +33,7 @@ WHERE ogrno BETWEEN 10 AND 30
 (Not: Otomatik arttırmada son arttırılan değer @@IDENTITY değişkeni içinde tutulur.)
 ???
 INSERT INTO yazar(yazarad, yazarsoyad) 
-VALUES ('Nurettin', 'Belek');
-SELECT @IDENTITY as yazarno;
+VALUES ('Nurettin', 'Belek') RETURNING yazarno
 
 
 7) 10B sınıfındaki öğrenci numarası 3 olan öğrenciyi 10C sınıfına geçirin.
@@ -90,11 +89,16 @@ WHERE kitapadi = 'Başarı Rehberi'
 
 
 16) Öğrenci tablosunu kontrol etmek amaçlı tüm öğrencileri görüntüleyen "ogrencilistesi" adında bir prosedür oluşturun.
-???
+CREATE FUNCITON ogrencilistesi()
+RETURNS SETOF ogrenci
+LANGUAGE 'sql'
+AS $BODY$
+	SELECT * FROM ogrenci
+$BODY$;
+SELECT * FROM ogrencilistesi()
 
 
 17) Öğrenci tablosuna yeni öğrenci eklemek için "ekle" adında bir prosedür oluşturun.
-???
 CREATE PROCEDURE ekle (ogrAd character varying, ogrSoyad character varying, gender character varying, dTarih date, class character varying, point smallint) 
 LANGUAGE 'sql'
 AS $BODY$
@@ -104,14 +108,13 @@ $BODY$;
 
 
 18) Öğrenci noya göre öğrenci silebilmeyi sağlayan "sil" adında bir prosedür oluşturun.
-???
-CREATE PROCEDURE 
-sil (ogr_number smallint)
+CREATE PROCEDURE sil (ogr_number smallint)
 LANGUAGE 'sql'
 AS $BODY$
 	DELETE FROM ogrenci
 	WHERE ogrno = ogr_number
 $BODY$
+CALL sil(103)
 
 
 19) Öğrenci numarasını kullanarak kolay bir biçimde öğrencinin sınıfını değiştirebileceğimiz bir prosedür oluşturun.
@@ -123,15 +126,17 @@ AS $BODY$
 	SET sinif = ogr_sinif
 	WHERE ogrno = ogr_number
 $BODY$
+CALL updateClass(104, '10B')
 
 
 20) Öğrenci adı ve soyadını "Ad Soyad" olarak birleştirip, ad soyada göre kolayca arama yapmayı sağlayan bir prosedür yazın.
-???
-CREATE PROCEDURE
+CREATE FUNCTION aramaYap(full_name character varying)
+RETURNS SETOF ogrenci
 LANGUAGE 'sql'
 AS $BODY$
-	UPDATE ogrenci 
-	CONCAT(ograd, ' ' ogrsoyad) AS 'Ad Soyad'
+	SELECT * FROM ogrenci
+	CONCAT(ograd, ' ', ogrsoyad) 
+	ILIKE CONCAT('%', full_name , '%')
 $BODY$
 
 
@@ -139,7 +144,6 @@ $BODY$
 DROP PROCEDURE IF EXISTS ekle;
 DROP PROCEDURE IF EXISTS sil;
 DROP PROCEDURE IF EXISTS updateClass;
-DROP PROCEDURE IF EXISTS searchByName;
 
 
 #Esnek görevler (Esnek görevlerin hepsini Select in Select ile gerçekleştirmeniz beklenmektedir.)
@@ -157,7 +161,7 @@ WHERE turadi = 'Dram'
 23) Adı e harfi ile başlayan yazarların kitaplarını listeleyin.
 SELECT kitapadi 
 FROM kitap 
-WHERE yazarno = (SELECT yazarno FROM yazar WHERE yazarad LIKE 'E%');
+WHERE yazarno IN (SELECT yazarno FROM yazar WHERE yazarad LIKE 'E%');
 --OR
 SELECT k.kitapadi, y.yazarad FROM kitap AS k 
 INNER JOIN yazar AS y 
@@ -176,6 +180,8 @@ WHERE kitapno NOT IN (SELECT DISTINCT kitapno FROM islem);
 
 
 26) Mayıs ayında okunmayan kitapları listeleyiniz.
-???
-SELECT * FROM kitap 
-WHERE kitapno NOT IN (SELECT kitapno FROM islem WHERE MONTH(atarih) = 5);
+SELECT * FROM kitap
+WHERE kitapno IN (SELECT kitapno FROM islem 
+WHERE EXTRACT(MONTH from atarih::timestamp) != 5 
+AND EXTRACT(MONTH from vtarih::timestamp) != 5)
+
